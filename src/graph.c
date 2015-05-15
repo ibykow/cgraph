@@ -41,19 +41,12 @@ static unsigned grow_graph(Graph *g, unsigned amount)
     if (!g || !g->verts)
         return 0;
 
-    Vert **verts = (Vert **) malloc(sizeof(Vert *) * g->len + amount);
-    if(!verts)
+    g->verts = (Vert **) realloc(g->verts, (sizeof(Vert *) * (g->max + amount)));
+
+    if(!g->verts)
         return 0;
 
-    unsigned i;
-    for(i = 0; i < g->len; i++)
-        verts[i] = g->verts[i];
-
-    for(g->len += amount; i < g->len; i++)
-        *verts++ = 0;
-
-    free(g->verts);
-    g->verts = verts;
+    g->max += amount;
 
     return g->len;
 }
@@ -68,14 +61,15 @@ static unsigned resize_graph(Graph *g)
 
 unsigned insert_vert(Graph *g, Vert *v)
 {
-    if(!g || !v || !id_in_graph(g, v->id) || !resize_graph(g))
+    if(!g || !v || id_in_graph(g, v->id) || !resize_graph(g))
         return 0;
 
-    g->next = v;
-    v->id = g->next - *g->verts;
-    g->next++;
+    g->verts[g->len] = v;
+    g->verts[g->len]->id = g->len;
+    g->len++;
 
-    return g->next - *g->verts;
+
+    return g->len;
 }
 
 Edge *find_edge(Vert *src, Vert *target)
@@ -98,6 +92,7 @@ Edge *connect_verts(Vert *src, Vert *dest, int weight)
         return 0;
 
     Edge *next = find_edge(src, dest);
+
     if(next)
         return next;
 
@@ -107,8 +102,10 @@ Edge *connect_verts(Vert *src, Vert *dest, int weight)
 Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
 {
     Vert *v = (Vert *) malloc(sizeof(Vert));
+
     if(!v)
         return 0;
+
     v->value = val;
     v->vsize = vsize;
     v->freev = freev;
@@ -123,8 +120,11 @@ void free_graph(Graph *g)
     if(!g)
         return;
 
-    while(g->len--)
+    while(g->len--) {
+        // printf("%s %s\n", __func__, g->verts[g->len]->value);
+        // printf("%s %lu\n", __func__, g->verts[g->len]->vsize);
         free_vert(g->verts[g->len]);
+    }
 
     if(g->verts)
         free(g->verts);
@@ -132,30 +132,28 @@ void free_graph(Graph *g)
     free(g);
 }
 
-Graph *new_graph(Vert *v)
+Graph *new_graph()
 {
-    if(!v)
-        return 0;
-
     Graph *g = (Graph *) malloc(sizeof(Graph));
     if(!g)
         return 0;
 
-    if(!(g->verts = (Vert **) malloc(sizeof(Vert *) * 2))) {
+    g->max = 4;
+
+    if(!(g->verts = (Vert **) malloc(sizeof(Vert *) * g->max))) {
         free(g);
         return 0;
     }
 
-    v->id = 0;
-    g->verts[0] = v;
+    *g->verts = 0;
     g->len = 1;
-    g->next = g->verts[1];
-    g->next = 0;
+
+    // insert_vert(g, v);
 
     return g;
 }
 
-void iter_edges(Vert *v, void (*iter)(Edge *e))
+void for_each_edge(Vert *v, void (*iter)(Edge *e))
 {
     Edge *e = v->edges;
 

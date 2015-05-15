@@ -10,4 +10,5 @@
 #include <sys/time.h>
 
 #include "graph.h"
+#include "random.h"
 #endif
