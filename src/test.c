@@ -1,6 +1,6 @@
 #include "common.h"
 
-#define TEST_ROUNDS 1000
+#define TEST_ROUNDS 100
 #define NUM_VERTS 30
 void fail(unsigned condition, const char reason[])
 {
@@ -84,21 +84,21 @@ int main(int argc, char const *argv[])
 
         fail(!v1 || !v2, "Couldn't create verticies.");
 
-        Graph *g = new_graph();
-        Edge *e;
+        Graph *g = new_graph(DAG_GRAPH_OPT);
+        // Edge *e;
 
         printf("[round %u ", i);
 
         fail(!g, "Couldn't create graph.");
         fail(!insert_vert(g, v1), "Couldn't insert v1 into graph.");
         fail(!insert_vert(g, v2), "Couldn't insert v2 into graph.");
-        fail(!connect_verts(v1, v2, 1), "Couldn't connect verticies.");
+        fail(!graph_connect(g, v1, v2, 1), "Couldn't connect verticies.");
         fail(!vert_in_graph(g, v1), "Couldn't find v1.");
         fail(!vert_in_graph(g, v2), "Couldn't find v2.");
-        fail(!(e = find_edge(v1, v2)), "Couldn't find edge between v1 and v2.");
+        fail(!find_edge(v1, v2), "Couldn't find edge between v1 and v2.");
         fail(!vert_at(g, 1), "Couldn't find v1 by id.");
         fail(!vert_at(g, 2), "Couldn't find v2 by id.");
-        fail((e != connect_ids(g, 1, 2, 1)), "Couldn't match existing edge.");
+        fail(!connect_ids(g, 1, 2, 1), "Couldn't match existing edge.");
         fail(!populate_graph(g, NUM_VERTS), "Couldn't populate graph.");
 
         printf("passed]\t\t");

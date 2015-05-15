@@ -59,6 +59,19 @@ static unsigned resize_graph(Graph *g)
     return full_graph(g) ? grow_graph(g, g->len * 2) : g->len;
 }
 
+static Edge *connect_verts(Vert *src, Vert *dest, int weight)
+{
+    if(!src || !dest)
+        return 0;
+
+    Edge *next = find_edge(src, dest);
+
+    if(next)
+        return next;
+
+    return new_edge(src, dest, weight);
+}
+
 unsigned insert_vert(Graph *g, Vert *v)
 {
     if(!g || !v || id_in_graph(g, v->id) || !resize_graph(g))
@@ -84,19 +97,6 @@ Edge *find_edge(Vert *src, Vert *target)
         ;
 
     return next;
-}
-
-Edge *connect_verts(Vert *src, Vert *dest, int weight)
-{
-    if(!src || !dest)
-        return 0;
-
-    Edge *next = find_edge(src, dest);
-
-    if(next)
-        return next;
-
-    return new_edge(src, dest, weight);
 }
 
 Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
@@ -132,7 +132,7 @@ void free_graph(Graph *g)
     free(g);
 }
 
-Graph *new_graph()
+Graph *new_graph(unsigned opts)
 {
     Graph *g = (Graph *) malloc(sizeof(Graph));
     if(!g)
@@ -147,10 +147,24 @@ Graph *new_graph()
 
     *g->verts = 0;
     g->len = 1;
+    g->opts = opts;
 
     // insert_vert(g, v);
 
     return g;
+}
+
+int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
+{
+    if (!g || !a || !b)
+        return 0;
+
+    if(!connect_verts(a, b, w))
+        return 0;
+
+    return undirected_graph(g)
+        ? !!connect_verts(b, a, w)
+        : 1;
 }
 
 void for_each_edge(Vert *v, void (*iter)(Edge *e))
