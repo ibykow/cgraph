@@ -1,47 +1,34 @@
 #include "common.h"
 
-// #define copy_edge(e) (new_edge((e)->src, (e)->dest, (e)->weight))
-
-static EdgeNode *new_edge_node(BTEdgeNode *n)
+static void _for_each_edge_f(EdgeNode *n, void(*iter)(void *), t_order o, unsigned edge_only)
 {
     if(!n)
-        return 0;
-
-    EdgeNode *en = (EdgeNode *) malloc(sizeof(EdgeNode));
-    if(!en)
-        return 0;
-
-    en->n = n;
-    en->next = 0;
-    return en;
-}
-
-void push_edge_node(EdgeNode **n, BTEdgeNode *v)
-{
-    if(!n || !*n || !v)
         return;
 
-    EdgeNode *next = new_edge_node(v);
-    if(!next)
-        return;
+    if(o != PRE_ORDER) {
+        _for_each_edge_f(n->left, iter, o, edge_only);
 
-    next->next = *n;
-    *n = next;
+        if(o == POST_ORDER)
+            _for_each_edge_f(n->right, iter, o, edge_only);
+    }
+
+    if(edge_only)
+        iter(n->e);
+    else
+        iter(n);
+
+    switch(o) {
+        case PRE_ORDER:
+            _for_each_edge_f(n->left, iter, o, edge_only);
+        case IN_ORDER:
+            _for_each_edge_f(n->right, iter, o, edge_only);
+        case POST_ORDER:
+        default:
+            ;
+    }
 }
 
-static BTEdgeNode *pop_edge_node(EdgeNode **n)
-{
-    if(!n || !*n)
-        return 0;
-
-    BTEdgeNode *pop = (*n)->n;
-    EdgeNode *next = (*n)->next;
-    free(*n);
-    *n = next;
-    return pop;
-}
-
-static Edge *_new_edge(Vert *src, Vert *dest, int weight)
+static Edge *new_edge(Vert *src, Vert *dest, int weight)
 {
     Edge *e = (Edge *) malloc(sizeof(Edge));
     if(!e)
@@ -54,16 +41,9 @@ static Edge *_new_edge(Vert *src, Vert *dest, int weight)
     return e;
 }
 
-BTEdgeNode *new_edge(Vert *src, Vert *dest, int weight)
+static EdgeNode *new_edge_node(Edge *e)
 {
-    if(!src || !dest)
-        return 0;
-
-    Edge *e = _new_edge(src, dest, weight);
-    if(!e)
-        return 0;
-
-    BTEdgeNode *n = (BTEdgeNode *) malloc(sizeof(BTEdgeNode));
+    EdgeNode *n = (EdgeNode *) malloc(sizeof(EdgeNode));
     if(!n)
         return 0;
 
@@ -74,27 +54,63 @@ BTEdgeNode *new_edge(Vert *src, Vert *dest, int weight)
     return n;
 }
 
-static void free_bt_edge_node(BTEdgeNode *n)
+static EdgeNode *create_edge_node(Vert *src, Vert *dest, int weight)
+{
+    if(!src || !dest)
+        return 0;
+
+    Edge *e = new_edge(src, dest, weight);
+    if(!e)
+        return 0;
+
+    EdgeNode *n = new_edge_node(e);
+    if(!n) {
+        free(e);
+        return 0;
+    }
+
+    return n;
+}
+
+static void push_edge_node(EdgeNode **stack, EdgeNode *n)
+{
+    if(!stack || !n)
+        return;
+
+    EdgeNode *next = new_edge_node(0);
+    if(!next)
+        return;
+
+    next->left = n;
+    next->right = *stack;
+    *stack = next;
+}
+
+static EdgeNode *pop_edge_node(EdgeNode **stack)
+{
+    if(!stack || !*stack)
+        return 0;
+
+    EdgeNode *pop = (*stack)->left,
+            *next = (*stack)->right;
+
+    free(*stack);
+    *stack = next;
+
+    return pop;
+}
+
+static void free_edge_node(void *n)
 {
     if(!n)
         return;
 
-    if(n->e)
-        free(n->e);
+    EdgeNode *node = (EdgeNode *) n;
 
-    free(n);
-}
+    if(node->e)
+        free(node->e);
 
-static void free_bt_edge_nodes(BTEdgeNode *n) {
-    if(!n)
-        return;
-
-    if(n->left)
-        free_bt_edge_nodes(n->left);
-    if(n->right)
-        free_bt_edge_nodes(n->right);
-
-    free_bt_edge_node(n);
+    free(node);
 }
 
 static void free_vert(Vert *v)
@@ -102,7 +118,7 @@ static void free_vert(Vert *v)
     if(!v)
         return;
 
-    free_bt_edge_nodes(v->edges);
+    for_each_edge_node(v, free_edge_node, POST_ORDER);
 
     if(v->freev)
         v->freev(v->value);
@@ -133,21 +149,22 @@ static unsigned resize_graph(Graph *g)
     return full_graph(g) ? grow_graph(g, g->len * 2) : g->len;
 }
 
-static void insert_edge(Vert *v, BTEdgeNode *dest)
+static void insert_edge_node(Vert *v, EdgeNode *next)
 {
-    BTEdgeNode *n = v->edges, *prev;
+    EdgeNode *n = v->edge_nodes, *prev;
+
     while(n) {
         prev = n;
-        if(dest->e->weight > n->e->weight)
+        if(next->e->weight > n->e->weight)
             n = n->right;
         else
             n = n->left;
     }
 
-    if(dest->e->weight > prev->e->weight)
-        prev->right = dest;
+    if(next->e->weight > prev->e->weight)
+        prev->right = next;
     else
-        prev->left = dest;
+        prev->left = next;
 }
 
 static Edge *connect_verts(Vert *src, Vert *dest, int weight)
@@ -159,16 +176,32 @@ static Edge *connect_verts(Vert *src, Vert *dest, int weight)
     if(prev)
         return prev;
 
-    BTEdgeNode *n = new_edge(src, dest, weight);
+    EdgeNode *n = create_edge_node(src, dest, weight);
     if(!n)
         return 0;
 
-    if(src->edges)
-        insert_edge(src, n);
+    if(src->edge_nodes)
+        insert_edge_node(src, n);
     else
-        src->edges = n;
+        src->edge_nodes = n;
 
     return n->e;
+}
+
+Edge *find_edge(Vert *src, Vert *target)
+{
+    if(!src || !src->edge_nodes || !target)
+        return 0;
+
+    EdgeInorderInfo info;
+    init_edge_inorder_info(&info, src->edge_nodes);
+    Edge *next;
+    while((next = next_edge(&info)) && (next->dest != target))
+        ;
+
+    cleanup_edge_inorder_info(info);
+
+    return next;
 }
 
 unsigned insert_vert(Graph *g, Vert *v)
@@ -183,24 +216,6 @@ unsigned insert_vert(Graph *g, Vert *v)
     return g->len;
 }
 
-Edge *find_edge(Vert *src, Vert *target)
-{
-    if(!src || !target)
-        return 0;
-
-    EdgeInorderInfo *info = new_edge_inorder_info(src->edges);
-    if(!info)
-        return 0;
-
-    Edge *next;
-    while((next = next_edge(info)) && (next->dest != target))
-        ;
-
-    free_edge_inorder_info(info);
-
-    return next || 0;
-}
-
 Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
 {
     Vert *v = (Vert *) malloc(sizeof(Vert));
@@ -211,7 +226,7 @@ Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
     v->value = val;
     v->vsize = vsize;
     v->freev = freev;
-    v->edges = 0;
+    v->edge_nodes = 0;
     v->id = 0;
 
     return v;
@@ -253,10 +268,7 @@ Graph *new_graph(unsigned opts)
 
 int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
 {
-    if (!g || !a || !b)
-        return 0;
-
-    if(!connect_verts(a, b, w))
+    if (!g || !a || !b || !connect_verts(a, b, w))
         return 0;
 
     return undirected_graph(g)
@@ -264,33 +276,15 @@ int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
         : 1;
 }
 
-void free_edge_inorder_info(EdgeInorderInfo *info)
+void init_edge_inorder_info(EdgeInorderInfo *info, EdgeNode *n)
 {
-    if(!info)
+    if(!info || !n)
         return;
 
-    while(pop_edge_node(&info->stack))
-        ;
-
-    free(info);
-}
-
-EdgeInorderInfo *new_edge_inorder_info(BTEdgeNode *n)
-{
-    if(!n)
-        return 0;
-
-    EdgeInorderInfo *info = (EdgeInorderInfo *)
-        malloc(sizeof(EdgeInorderInfo));
-
-    if(!info)
-        return 0;
-
-    info->current = n;
-    info->stack = new_edge_node(n);
     info->goLeft = 1;
-
-    return info;
+    info->current = n;
+    info->stack = 0;
+    push_edge_node(&info->stack, n);
 }
 
 Edge *next_edge(EdgeInorderInfo *info)
@@ -319,23 +313,15 @@ Edge *next_edge(EdgeInorderInfo *info)
 
         break;
     }
+
     info->current = pop_edge_node(&info->stack);
-    return info->current->e;
+    return info->current ? info->current->e : 0;
 }
 
-void for_each_edge(Vert *v, void (*iter)(Edge *n))
+void for_each_edge_f(Vert *v, void (*iter)(void *), t_order o, unsigned edge_only)
 {
     if (!v || !iter)
         return;
 
-    EdgeInorderInfo *info = new_edge_inorder_info(v->edges);
-    if(!info)
-        return;
-
-    BTEdgeNode *next;
-
-    while((next = next_edge(info)))
-        iter(next->e);
-
-    free_edge_inorder_info(info);
+    _for_each_edge_f(v->edge_nodes, iter, o, edge_only);
 }

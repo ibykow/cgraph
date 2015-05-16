@@ -9,7 +9,7 @@ void init_random() {
 unsigned urand(unsigned min, unsigned max)
 {
     if(max <= min)
-        return 0;
+        return min;
 
-    return (unsigned) (rand() / (RAND_MAX / (max - min) + 1)) + min;
+    return (unsigned) (rand() / (RAND_MAX / (max - min))) + min;
 }

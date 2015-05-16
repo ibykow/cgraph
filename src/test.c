@@ -1,7 +1,7 @@
 #include "common.h"
 
 #define TEST_ROUNDS 100
-#define NUM_VERTS 10
+#define NUM_VERTS 100
 void fail(unsigned condition, const char reason[])
 {
     if(!condition)
@@ -42,7 +42,7 @@ static unsigned populate_graph(Graph *g, unsigned n)
 {
     unsigned i, lost = 0;
     Vert *v;
-    for(i = 0; i < n; i++) {
+    for(i = 1; i < n; i++) {
         char *s = new_str("aaa", 3);
         if (!s) {
             lost++;
@@ -62,9 +62,9 @@ static unsigned populate_graph(Graph *g, unsigned n)
 
         insert_vert(g, v);
 
-        connect_ids(g, ur(i), ur(i), ur(10));
-        connect_ids(g, ur(i), ur(i), ur(10));
-        connect_ids(g, ur(i), ur(i), ur(10));
+        connect_ids(g, ur(i), ur(i), ur(i*20));
+
+        // connect_ids(g, ur(i), ur(i), ur(10));
     }
 
     return n - lost || 1;
@@ -76,6 +76,7 @@ int main(int argc, char const *argv[])
     init_random();
 
     for(i = 1; i <= TEST_ROUNDS; i++) {
+
         char s1[] = "hello", s2[] = "world";
 
         Vert *v1 = new_vert(s1, strlen(s1), 0),
@@ -86,7 +87,6 @@ int main(int argc, char const *argv[])
         Graph *g = new_graph(DAG_GRAPH_OPT);
 
         printf("[round %u ", i);
-        printf("passed]\t\t");
 
         fail(!g, "Couldn't create graph.");
         fail(!insert_vert(g, v1), "Couldn't insert v1 into graph.");
@@ -102,6 +102,7 @@ int main(int argc, char const *argv[])
 
         free_graph(g);
 
+        printf("passed]\t\t");
 
         if(!(i % 3))
             printf("\n");
