@@ -1,7 +1,7 @@
 #include "common.h"
 
 #define TEST_ROUNDS 100
-#define NUM_VERTS 100
+#define NUM_VERTS 10
 void fail(unsigned condition, const char reason[])
 {
     if(!condition)
@@ -14,12 +14,6 @@ void fail(unsigned condition, const char reason[])
 void print_vert(Vert *v, const char prefix[])
 {
     printf("%s%s (%u)\n", prefix, (char *) v->value, v->id);
-}
-
-void print_edge(Edge *e)
-{
-    print_vert(e->src, "from:\t");
-    print_vert(e->dest, "to:\t");
 }
 
 char *new_str(const char str[], unsigned len)
@@ -55,7 +49,6 @@ static unsigned populate_graph(Graph *g, unsigned n)
             lost++;
             continue;
         }
-
         s[0] += (char) ur(26);
         s[1] += (char) ur(26);
         s[2] += (char) ur(26);
@@ -63,8 +56,8 @@ static unsigned populate_graph(Graph *g, unsigned n)
         insert_vert(g, v);
 
         connect_ids(g, ur(i), ur(i), ur(i*20));
-
-        // connect_ids(g, ur(i), ur(i), ur(10));
+        connect_ids(g, ur(i), ur(i), ur(i*20));
+        connect_ids(g, ur(i), ur(i), ur(i*20));
     }
 
     return n - lost || 1;
@@ -87,25 +80,21 @@ int main(int argc, char const *argv[])
         Graph *g = new_graph(DAG_GRAPH_OPT);
 
         printf("[round %u ", i);
-
         fail(!g, "Couldn't create graph.");
         fail(!insert_vert(g, v1), "Couldn't insert v1 into graph.");
         fail(!insert_vert(g, v2), "Couldn't insert v2 into graph.");
         fail(!graph_connect(g, v1, v2, 100), "Couldn't connect verticies.");
+        fail(connect_ids(g, 1, 2, 200), "Created a repeat edge.");
         fail(!vert_in_graph(g, v1), "Couldn't find v1.");
         fail(!vert_in_graph(g, v2), "Couldn't find v2.");
-        fail(!find_edge(v1, v2), "Couldn't find edge between v1 and v2.");
+        fail(!find_edge_node(v1, v2), "Couldn't find edge between v1 and v2.");
         fail(!vert_at(g, 1), "Couldn't find v1 by id.");
         fail(!vert_at(g, 2), "Couldn't find v2 by id.");
-        fail(!connect_ids(g, 1, 2, 200), "Couldn't match existing edge.");
         fail(!populate_graph(g, NUM_VERTS), "Couldn't populate graph.");
+        printf("passed]\n");
 
+        for_each_edge(g->edge_nodes, print_edge, IN_ORDER);
         free_graph(g);
-
-        printf("passed]\t\t");
-
-        if(!(i % 3))
-            printf("\n");
 
     }
     printf("All test rounds passed!\n");

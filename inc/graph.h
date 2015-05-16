@@ -48,11 +48,12 @@ struct gedge_s {
 
 struct gedge_node_s {
     Edge *e;
-    EdgeNode *left, *right;
+    EdgeNode *left, *right, *next;
 };
 
 struct graph_s {
     Vert **verts;
+    EdgeNode *edge_nodes;
     unsigned len, max, opts;
 };
 
@@ -72,7 +73,7 @@ static inline int full_graph(Graph *g)
     return g ? (g->len == g->max ? 1 : 0) : -1;
 }
 
-Edge *find_edge(Vert *src, Vert *target);
+EdgeNode *find_edge_node(Vert *src, Vert *target);
 unsigned insert_vert(Graph *g, Vert *v);
 Vert *new_vert(void *val, size_t vsize, void (*freev)(void *));
 void free_graph(Graph *g);
@@ -80,6 +81,7 @@ Graph *new_graph(unsigned opts);
 int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w);
 void init_edge_inorder_info(EdgeInorderInfo *info, EdgeNode *n);
 Edge *next_edge(EdgeInorderInfo *info);
-void for_each_edge_f(Vert *v, void (*iter)(void *), t_order o, unsigned edge_only);
+void for_each_edge_f(EdgeNode *n, void (*iter)(void *), t_order o, unsigned edge_only);
+void print_edge(void *v);
 
 #endif
