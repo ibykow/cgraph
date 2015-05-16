@@ -1,10 +1,48 @@
 #include "common.h"
 
-static Edge *new_edge(Vert *src, Vert *dest, int weight)
+// #define copy_edge(e) (new_edge((e)->src, (e)->dest, (e)->weight))
+
+static EdgeNode *new_edge_node(BTEdgeNode *n)
 {
-    if(!src || !dest)
+    if(!n)
         return 0;
 
+    EdgeNode *en = (EdgeNode *) malloc(sizeof(EdgeNode));
+    if(!en)
+        return 0;
+
+    en->n = n;
+    en->next = 0;
+    return en;
+}
+
+void push_edge_node(EdgeNode **n, BTEdgeNode *v)
+{
+    if(!n || !*n || !v)
+        return;
+
+    EdgeNode *next = new_edge_node(v);
+    if(!next)
+        return;
+
+    next->next = *n;
+    *n = next;
+}
+
+static BTEdgeNode *pop_edge_node(EdgeNode **n)
+{
+    if(!n || !*n)
+        return 0;
+
+    BTEdgeNode *pop = (*n)->n;
+    EdgeNode *next = (*n)->next;
+    free(*n);
+    *n = next;
+    return pop;
+}
+
+static Edge *_new_edge(Vert *src, Vert *dest, int weight)
+{
     Edge *e = (Edge *) malloc(sizeof(Edge));
     if(!e)
         return 0;
@@ -12,11 +50,51 @@ static Edge *new_edge(Vert *src, Vert *dest, int weight)
     e->src = src;
     e->dest = dest;
     e->weight = weight;
-    e->next = 0;
-    e->next = e->src->edges;
-    e->src->edges = e;
 
     return e;
+}
+
+BTEdgeNode *new_edge(Vert *src, Vert *dest, int weight)
+{
+    if(!src || !dest)
+        return 0;
+
+    Edge *e = _new_edge(src, dest, weight);
+    if(!e)
+        return 0;
+
+    BTEdgeNode *n = (BTEdgeNode *) malloc(sizeof(BTEdgeNode));
+    if(!n)
+        return 0;
+
+    n->e = e;
+    n->left = 0;
+    n->right = 0;
+
+    return n;
+}
+
+static void free_bt_edge_node(BTEdgeNode *n)
+{
+    if(!n)
+        return;
+
+    if(n->e)
+        free(n->e);
+
+    free(n);
+}
+
+static void free_bt_edge_nodes(BTEdgeNode *n) {
+    if(!n)
+        return;
+
+    if(n->left)
+        free_bt_edge_nodes(n->left);
+    if(n->right)
+        free_bt_edge_nodes(n->right);
+
+    free_bt_edge_node(n);
 }
 
 static void free_vert(Vert *v)
@@ -24,11 +102,7 @@ static void free_vert(Vert *v)
     if(!v)
         return;
 
-    Edge *ne;
-    for(; v->edges; v->edges = ne) {
-        ne = v->edges->next;
-        free(v->edges);
-    }
+    free_bt_edge_nodes(v->edges);
 
     if(v->freev)
         v->freev(v->value);
@@ -59,17 +133,42 @@ static unsigned resize_graph(Graph *g)
     return full_graph(g) ? grow_graph(g, g->len * 2) : g->len;
 }
 
+static void insert_edge(Vert *v, BTEdgeNode *dest)
+{
+    BTEdgeNode *n = v->edges, *prev;
+    while(n) {
+        prev = n;
+        if(dest->e->weight > n->e->weight)
+            n = n->right;
+        else
+            n = n->left;
+    }
+
+    if(dest->e->weight > prev->e->weight)
+        prev->right = dest;
+    else
+        prev->left = dest;
+}
+
 static Edge *connect_verts(Vert *src, Vert *dest, int weight)
 {
     if(!src || !dest)
         return 0;
 
-    Edge *next = find_edge(src, dest);
+    Edge *prev = find_edge(src, dest);
+    if(prev)
+        return prev;
 
-    if(next)
-        return next;
+    BTEdgeNode *n = new_edge(src, dest, weight);
+    if(!n)
+        return 0;
 
-    return new_edge(src, dest, weight);
+    if(src->edges)
+        insert_edge(src, n);
+    else
+        src->edges = n;
+
+    return n->e;
 }
 
 unsigned insert_vert(Graph *g, Vert *v)
@@ -81,7 +180,6 @@ unsigned insert_vert(Graph *g, Vert *v)
     g->verts[g->len]->id = g->len;
     g->len++;
 
-
     return g->len;
 }
 
@@ -90,13 +188,17 @@ Edge *find_edge(Vert *src, Vert *target)
     if(!src || !target)
         return 0;
 
-    Edge *next = src->edges;
-    for(next = src->edges;
-        next && (next->dest != target);
-        next = next->next)
+    EdgeInorderInfo *info = new_edge_inorder_info(src->edges);
+    if(!info)
+        return 0;
+
+    Edge *next;
+    while((next = next_edge(info)) && (next->dest != target))
         ;
 
-    return next;
+    free_edge_inorder_info(info);
+
+    return next || 0;
 }
 
 Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
@@ -120,11 +222,8 @@ void free_graph(Graph *g)
     if(!g)
         return;
 
-    while(g->len--) {
-        // printf("%s %s\n", __func__, g->verts[g->len]->value);
-        // printf("%s %lu\n", __func__, g->verts[g->len]->vsize);
+    while(g->len--)
         free_vert(g->verts[g->len]);
-    }
 
     if(g->verts)
         free(g->verts);
@@ -149,8 +248,6 @@ Graph *new_graph(unsigned opts)
     g->len = 1;
     g->opts = opts;
 
-    // insert_vert(g, v);
-
     return g;
 }
 
@@ -167,12 +264,78 @@ int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
         : 1;
 }
 
-void for_each_edge(Vert *v, void (*iter)(Edge *e))
+void free_edge_inorder_info(EdgeInorderInfo *info)
 {
-    Edge *e = v->edges;
+    if(!info)
+        return;
 
-    while(e) {
-        iter(e);
-        e = e->next;
+    while(pop_edge_node(&info->stack))
+        ;
+
+    free(info);
+}
+
+EdgeInorderInfo *new_edge_inorder_info(BTEdgeNode *n)
+{
+    if(!n)
+        return 0;
+
+    EdgeInorderInfo *info = (EdgeInorderInfo *)
+        malloc(sizeof(EdgeInorderInfo));
+
+    if(!info)
+        return 0;
+
+    info->current = n;
+    info->stack = new_edge_node(n);
+    info->goLeft = 1;
+
+    return info;
+}
+
+Edge *next_edge(EdgeInorderInfo *info)
+{
+    if (!info)
+        return 0;
+
+    for(;;) {
+        if(info->goLeft && info->current->left) {
+            info->current = info->current->left;
+            push_edge_node(&info->stack, info->current);
+            continue;
+        }
+
+        if(info->goLeft) {
+            info->goLeft = 0;
+            break;
+        }
+
+        if(info->current->right) {
+            info->goLeft = 1;
+            info->current = info->current->right;
+            push_edge_node(&info->stack, info->current);
+            continue;
+        }
+
+        break;
     }
+    info->current = pop_edge_node(&info->stack);
+    return info->current->e;
+}
+
+void for_each_edge(Vert *v, void (*iter)(Edge *n))
+{
+    if (!v || !iter)
+        return;
+
+    EdgeInorderInfo *info = new_edge_inorder_info(v->edges);
+    if(!info)
+        return;
+
+    BTEdgeNode *next;
+
+    while((next = next_edge(info)))
+        iter(next->e);
+
+    free_edge_inorder_info(info);
 }

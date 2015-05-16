@@ -1,7 +1,7 @@
 #include "common.h"
 
 #define TEST_ROUNDS 100
-#define NUM_VERTS 30
+#define NUM_VERTS 10
 void fail(unsigned condition, const char reason[])
 {
     if(!condition)
@@ -38,7 +38,6 @@ char *new_str(const char str[], unsigned len)
     return s;
 }
 
-void free_vert(Vert *v);
 static unsigned populate_graph(Graph *g, unsigned n)
 {
     unsigned i, lost = 0;
@@ -68,7 +67,7 @@ static unsigned populate_graph(Graph *g, unsigned n)
         connect_ids(g, ur(i), ur(i), ur(10));
     }
 
-    return n - lost;
+    return n - lost || 1;
 }
 
 int main(int argc, char const *argv[])
@@ -85,27 +84,28 @@ int main(int argc, char const *argv[])
         fail(!v1 || !v2, "Couldn't create verticies.");
 
         Graph *g = new_graph(DAG_GRAPH_OPT);
-        // Edge *e;
 
         printf("[round %u ", i);
+        printf("passed]\t\t");
 
         fail(!g, "Couldn't create graph.");
         fail(!insert_vert(g, v1), "Couldn't insert v1 into graph.");
         fail(!insert_vert(g, v2), "Couldn't insert v2 into graph.");
-        fail(!graph_connect(g, v1, v2, 1), "Couldn't connect verticies.");
+        fail(!graph_connect(g, v1, v2, 100), "Couldn't connect verticies.");
         fail(!vert_in_graph(g, v1), "Couldn't find v1.");
         fail(!vert_in_graph(g, v2), "Couldn't find v2.");
         fail(!find_edge(v1, v2), "Couldn't find edge between v1 and v2.");
         fail(!vert_at(g, 1), "Couldn't find v1 by id.");
         fail(!vert_at(g, 2), "Couldn't find v2 by id.");
-        fail(!connect_ids(g, 1, 2, 1), "Couldn't match existing edge.");
+        fail(!connect_ids(g, 1, 2, 200), "Couldn't match existing edge.");
         fail(!populate_graph(g, NUM_VERTS), "Couldn't populate graph.");
 
-        printf("passed]\t\t");
-        if(!(i % 5))
+        free_graph(g);
+
+
+        if(!(i % 3))
             printf("\n");
 
-        free_graph(g);
     }
     printf("All test rounds passed!\n");
     return 0;

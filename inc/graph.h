@@ -17,24 +17,45 @@
     (graph_connect(g, vert_at((g), (srcid)), vert_at((g), (destid)), w))
 
 typedef struct gedge_s Edge;
+typedef struct gedge_bt_node_s BTEdgeNode;
+typedef struct gedge_node_s EdgeNode;
+typedef struct edge_inorder_info_s EdgeInorderInfo;
+typedef struct gvert_s Vert;
+typedef struct graph_s Graph;
 
-typedef struct gvert_s {
+struct gvert_s {
     void *value, (*freev)(void *);
     size_t vsize;
-    Edge *edges;
+    BTEdgeNode *edges;
+
     unsigned id;
-} Vert;
+};
 
 struct gedge_s {
     Vert *src, *dest;
-    Edge *next;
     int weight;
 };
 
-typedef struct graph_s {
+struct gedge_bt_node_s {
+    Edge *e;
+    BTEdgeNode *left, *right;
+};
+
+struct gedge_node_s {
+    BTEdgeNode *n;
+    EdgeNode *next;
+};
+
+struct graph_s {
     Vert **verts;
     unsigned len, max, opts;
-} Graph;
+};
+
+struct edge_inorder_info_s {
+    BTEdgeNode *current;
+    EdgeNode *stack;
+    unsigned goLeft;
+};
 
 static inline Vert *vert_at(Graph *g, unsigned id)
 {
@@ -53,6 +74,8 @@ Vert *new_vert(void *val, size_t vsize, void (*freev)(void *));
 void free_graph(Graph *g);
 Graph *new_graph(unsigned opts);
 int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w);
-void for_each_edge(Vert *v, void (*iter)(Edge *e));
-
+void free_edge_inorder_info(EdgeInorderInfo *info);
+EdgeInorderInfo *new_edge_inorder_info(BTEdgeNode *n);
+Edge *next_edge(EdgeInorderInfo *info);
+void for_each_edge(Vert *v, void (*iter)(Edge *n));
 #endif

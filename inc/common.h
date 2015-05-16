@@ -11,4 +11,7 @@
 
 #include "graph.h"
 #include "random.h"
+
+#define pfunc() printf("%s\n", __func__)
+
 #endif
