@@ -1,6 +1,13 @@
 #include "common.h"
 
-static void _for_each_edge_f(EdgeNode *n, void(*iter)(void *), t_order o, unsigned edge_only)
+/*
+ * Generic graph implementation.
+ * 2015
+ * Ilia Bykow
+*/
+
+static void _for_each_edge_f(EdgeNode *n, void(*iter)(void *),
+    t_order o, unsigned edge_only)
 {
     if(!n)
         return;
@@ -137,7 +144,8 @@ static unsigned grow_graph(Graph *g, unsigned amount)
     if (!g || !g->verts)
         return 0;
 
-    g->verts = (Vert **) realloc(g->verts, (sizeof(Vert *) * (g->max + amount)));
+    g->verts = (Vert **) realloc
+        (g->verts, (sizeof(Vert *) * (g->max + amount)));
 
     if(!g->verts)
         return 0;
@@ -152,7 +160,7 @@ static unsigned resize_graph(Graph *g)
     if(!g)
         return 0;
 
-    return full_graph(g) ? grow_graph(g, g->len * 2) : g->len;
+    return graph_full(g) ? grow_graph(g, g->len * 2) : g->len;
 }
 
 static void insert_edge_node(EdgeNode *n, EdgeNode *next)
@@ -177,7 +185,7 @@ static EdgeNode *connect_verts(Vert *src, Vert *dest, int weight)
     if(!src || !dest)
         return 0;
 
-    EdgeNode *prev = find_edge_node(src, dest);
+    EdgeNode *prev = graph_find_edge_node(src, dest);
     if(prev)
         return 0;
 
@@ -189,57 +197,6 @@ static EdgeNode *connect_verts(Vert *src, Vert *dest, int weight)
     src->edge_nodes = n;
 
     return n;
-}
-
-EdgeNode *find_edge_node(Vert *src, Vert *target)
-{
-    if(!src || !target)
-        return 0;
-
-    #if 0
-    EdgeInorderInfo info;
-    init_edge_inorder_info(&info, src->edge_nodes);
-    Edge *next;
-    while((next = next_edge(&info)) && (next->dest != target))
-        ;
-    cleanup_edge_inorder_info(info);
-    #else
-    EdgeNode *next;
-    for(next = src->edge_nodes;
-        next && (next->e->dest != target);
-        next = next->next)
-        ;
-    #endif
-
-    return next;
-}
-
-unsigned insert_vert(Graph *g, Vert *v)
-{
-    if(!g || !v || id_in_graph(g, v->id) || !resize_graph(g))
-        return 0;
-
-    g->verts[g->len] = v;
-    g->verts[g->len]->id = g->len;
-    g->len++;
-
-    return g->len;
-}
-
-Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
-{
-    Vert *v = (Vert *) malloc(sizeof(Vert));
-
-    if(!v)
-        return 0;
-
-    v->value = val;
-    v->vsize = vsize;
-    v->freev = freev;
-    v->edge_nodes = 0;
-    v->id = 0;
-
-    return v;
 }
 
 void free_graph(Graph *g)
@@ -277,6 +234,34 @@ Graph *new_graph(unsigned opts)
     return g;
 }
 
+Vert *new_vert(void *val, size_t vsize, void (*freev)(void *))
+{
+    Vert *v = (Vert *) malloc(sizeof(Vert));
+
+    if(!v)
+        return 0;
+
+    v->value = val;
+    v->vsize = vsize;
+    v->freev = freev;
+    v->edge_nodes = 0;
+    v->id = 0;
+
+    return v;
+}
+
+unsigned graph_insert(Graph *g, Vert *v)
+{
+    if(!g || !v || graph_id_occupied(g, v->id) || !resize_graph(g))
+        return 0;
+
+    g->verts[g->len] = v;
+    g->verts[g->len]->id = g->len;
+    g->len++;
+
+    return g->len;
+}
+
 int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
 {
     if (!g || !a || !b)
@@ -300,6 +285,17 @@ int graph_connect(Graph *g, Vert *a, Vert *b, unsigned w)
     }
 
     return 1;
+}
+
+void edge_print(void *v)
+{
+    Edge *e = (Edge *) v;
+
+    printf("%s ", __func__);
+    if(e)
+        printf("%u %s, %s\n", e->weight, e->src->value, e->dest->value);
+    else
+        printf("no edge.");
 }
 
 void init_edge_inorder_info(EdgeInorderInfo *info, EdgeNode *n)
@@ -344,21 +340,25 @@ Edge *next_edge(EdgeInorderInfo *info)
     return info->current ? info->current->e : 0;
 }
 
-void for_each_edge_f(EdgeNode *n, void (*iter)(void *), t_order o, unsigned edge_only)
+void for_each_edge_node(EdgeNode *n, void (*iter)(void *),
+    t_order o, unsigned edge_only)
 {
-    if (!iter)
+    if (!n || !iter)
         return;
 
     _for_each_edge_f(n, iter, o, edge_only);
 }
 
-void print_edge(void *v)
+EdgeNode *graph_find_edge_node(Vert *src, Vert *target)
 {
-    Edge *e = (Edge *) v;
+    if(!src || !target)
+        return 0;
 
-    printf("%s ", __func__);
-    if(e)
-        printf("%u %s, %s\n", e->weight, e->src->value, e->dest->value);
-    else
-        printf("no edge.");
+    EdgeNode *next;
+    for(next = src->edge_nodes;
+        next && (next->e->dest != target);
+        next = next->next)
+        ;
+
+    return next;
 }
