@@ -9,8 +9,10 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include "fail.h"
 #include "graph.h"
 #include "random.h"
+#include "list.h"
 
 #define pfunc() printf("%s\n", __func__)
 

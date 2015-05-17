@@ -2,14 +2,6 @@
 
 #define TEST_ROUNDS 100
 #define NUM_VERTS 10
-void fail(unsigned condition, const char reason[])
-{
-    if(!condition)
-        return;
-
-    printf("Fail! %s\n", reason);
-    exit(0);
-}
 
 void print_vert(Vert *v, const char prefix[])
 {
@@ -79,7 +71,7 @@ int main(int argc, char const *argv[])
 
         Graph *g = new_graph(DAG_GRAPH_OPT);
 
-        printf("[round %u ", i);
+        // printf("[round %u ", i);
         fail(!g, "Couldn't create graph.");
         fail(!graph_insert(g, v1), "Couldn't insert v1 into graph.");
         fail(!graph_insert(g, v2), "Couldn't insert v2 into graph.");
@@ -91,9 +83,9 @@ int main(int argc, char const *argv[])
         fail(!graph_vert_at(g, 1), "Couldn't find v1 by id.");
         fail(!graph_vert_at(g, 2), "Couldn't find v2 by id.");
         fail(!populate_graph(g, NUM_VERTS), "Couldn't populate graph.");
-        printf("passed]\n");
+        // printf("passed]\n");
 
-        graph_iter_edges(g, edge_print, IN_ORDER);
+        // graph_iter_edges(g, edge_print, IN_ORDER);
         free_graph(g);
 
     }
