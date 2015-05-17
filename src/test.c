@@ -1,6 +1,6 @@
 #include "common.h"
+#include "test.h"
 
-#define TEST_ROUNDS 100
 #define NUM_VERTS 10
 
 void print_vert(Vert *v, const char prefix[])
@@ -61,7 +61,6 @@ int main(int argc, char const *argv[])
     init_random();
 
     for(i = 1; i <= TEST_ROUNDS; i++) {
-
         char s1[] = "hello", s2[] = "world";
 
         Vert *v1 = new_vert(s1, strlen(s1), 0),
@@ -88,6 +87,7 @@ int main(int argc, char const *argv[])
         // graph_iter_edges(g, edge_print, IN_ORDER);
         free_graph(g);
 
+        list_test();
     }
     printf("All test rounds passed!\n");
     return 0;
