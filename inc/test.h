@@ -5,5 +5,7 @@
 
 char *new_str(const char str[], unsigned len);
 void list_test();
+void bitfield_test();
+
 
 #endif

@@ -88,6 +88,7 @@ int main(int argc, char const *argv[])
         free_graph(g);
 
         list_test();
+        bitfield_test();
     }
     printf("All test rounds passed!\n");
     return 0;

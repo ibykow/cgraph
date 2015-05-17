@@ -13,6 +13,7 @@
 #include "graph.h"
 #include "random.h"
 #include "list.h"
+#include "bitfield.h"
 
 #define pfunc() printf("%s\n", __func__)
 

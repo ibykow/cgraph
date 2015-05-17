@@ -293,7 +293,7 @@ void edge_print(void *v)
 
     printf("%s ", __func__);
     if(e)
-        printf("%u %s, %s\n", e->weight, e->src->value, e->dest->value);
+        printf("%u %s, %s\n", e->weight, (char *) e->src->value, (char *) e->dest->value);
     else
         printf("no edge.");
 }
